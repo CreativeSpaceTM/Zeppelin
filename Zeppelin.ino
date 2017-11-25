@@ -4,48 +4,85 @@
 #include <NeoPixelAnimator.h>
 #include <NeoPixelBrightnessBus.h>
 
-const uint16_t zeppelinPixelCount = 150;
-const uint8_t zeppelinPin = 2;
-
-const uint8_t cloud1Pin = 2;
-bool cloud1Struck = false;
-
-const uint8_t cloud2Pin = 7;
-bool cloud2Struck = false;
-
-const uint8_t cloud3Pin = 12;
-bool cloud3Struck = false;
-
-const uint16_t maxCloudPixelCount = 33;
-
-const uint16_t flashChannce = 1;
-const uint16_t flashDuration = 70;
-const uint16_t minFlashBrightness = 2;
-const uint16_t maxFlashBrightness = 255;
-
-const uint8_t AnimationChannels = 1;
-
-RgbColor white(255, 255, 255);
-
-NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> zeppelinStrip(zeppelinPixelCount, zeppelinPin);
-NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod> cloud1Strip(maxCloudPixelCount, cloud1Pin);
-NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod> cloud2Strip(maxCloudPixelCount, cloud2Pin);
-NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod> cloud3Strip(maxCloudPixelCount, cloud3Pin);
-
-NeoPixelAnimator zeppelinAnimation(AnimationChannels);
-
-NeoPixelAnimator cloudAnimation(1);
-
-// what is stored for state is specific to the need, in this case, the colors.
-// basically what ever you need inside the animation update function
-struct zeppelinAnimationState
+struct ZeppelinAnimationState
 {
   RgbColor StartingColor;
   RgbColor EndingColor;
 };
 
+
+struct CloudState {
+  uint8_t pin;
+  uint8_t pixelCount;
+  
+  bool struck;
+  uint8_t flashOffset;
+  uint8_t flashCount;
+};
+
+
+const uint16_t zeppelinPixelCount = 150;
+const uint8_t zeppelinPin = 13;
+
+const uint8_t cloudCount = 3;
+
+//TODO: make more beautifull
+CloudState clouds[cloudCount] = {
+  {
+    2,      //pin
+    17,     //count
+    
+    false,
+    0,
+    0    
+  },
+
+  {
+    7,      //pin
+    33,     //count
+    
+    false,
+    0,
+    0    
+  },
+
+  {
+    12,      //pin
+    255,     //count
+    
+    false,
+    0,
+    0    
+  },
+
+};
+
+const uint8_t maxCloudPixelCount = 33;
+
+const uint8_t flashChannce = 1;
+const uint8_t flashDuration = 70;
+const uint8_t minFlashPixels = 1;
+const uint8_t maxFlashPixels = 10;
+
+HslColor normalCloudColor(1.0f, 0, 0.004);
+
+const uint8_t AnimationChannels = 1;
+
+
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> zeppelinStrip(zeppelinPixelCount, zeppelinPin);
+
+//TODO: make clouds strips as arrays
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud1Strip(clouds[0].pixelCount, clouds[0].pin);
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud2Strip(clouds[1].pixelCount, clouds[1].pin);
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud3Strip(clouds[2].pixelCount, clouds[2].pin);
+
+
+NeoPixelAnimator zeppelinAnimation(AnimationChannels);
+
+NeoPixelAnimator cloudAnimation(1);
+
 // one entry per pixel to match the animation timing manager
-zeppelinAnimationState animationState[AnimationChannels];
+ZeppelinAnimationState animationState[AnimationChannels];
 
 void SetRandomSeed()
 {
@@ -84,70 +121,58 @@ void BlendAnimUpdate(const AnimationParam& param)
   }
 }
 
-void FadeInFadeOutRinseRepeat(float luminance)
-{
-  // Fade upto a random color
-  // we use HslColor object as it allows us to easily pick a hue
-  // with the same saturation and luminance so the colors picked
-  // will have similiar overall brightness
-  RgbColor target = HslColor(random(360) / 360.0f, 1.0f, luminance);
-  uint16_t time = random(800, 2000);
 
-  animationState[0].StartingColor = zeppelinStrip.GetPixelColor(0);
-  animationState[0].EndingColor = target;
+void resetClouds() {
+  for (uint8_t f = 0; f < cloudCount; f++) {
+    clouds[f].struck = false;
+  }
 
-  zeppelinAnimation.StartAnimation(0, time, BlendAnimUpdate);
+  for (uint8_t f = 0; f < maxCloudPixelCount; f++) {
+    cloud1Strip.SetPixelColor(f, normalCloudColor);
+    cloud2Strip.SetPixelColor(f, normalCloudColor);
+    cloud3Strip.SetPixelColor(f, normalCloudColor);
+  }
 }
 
 void flashAnimation(const AnimationParam& param) {
   uint16_t dice;
 
-  if (!cloud1Struck) {
-    dice = random(0, 200);
-
-    if (dice < flashChannce) {
-      cloud1Struck = true;
+  for (uint8_t f = 0; f < cloudCount; f++) {
+    // roll dice for a flash
+    if (!clouds[f].struck) {
+      dice = random(0, 100);
+  
+      if (dice < flashChannce) {
+        clouds[f].struck = true;
+        clouds[f].flashOffset = random(0, clouds[f].pixelCount - minFlashPixels);
+        clouds[f].flashCount = min(random(clouds[f].flashOffset, clouds[f].pixelCount), maxFlashPixels);
+      }
+    }
+  }
+  
+  HslColor flashCloudColor(1.0f, 0, (0.5 * param.progress) + 0.004);
+  
+  if (clouds[0].struck) {
+    for (uint8_t f = clouds[0].flashOffset; f < clouds[0].flashCount; f++) {
+      cloud1Strip.SetPixelColor(f, flashCloudColor);
     }
   }
 
-  if (!cloud2Struck) {
-    dice = random(0, 200);
-
-    if (dice < flashChannce) {
-      cloud2Struck = true;
+  if (clouds[1].struck) {
+    for (uint8_t f = clouds[1].flashOffset; f < clouds[1].flashCount; f++) {
+      cloud2Strip.SetPixelColor(f, flashCloudColor);
     }
   }
 
-  if (!cloud3Struck) {
-    dice = random(0, 200);
-
-    if (dice < flashChannce) {
-      cloud3Struck = true;
+  if (clouds[2].struck) {
+    for (uint8_t f = clouds[2].flashOffset; f < clouds[2].flashCount; f++) {
+      cloud3Strip.SetPixelColor(f, flashCloudColor);
     }
-  }
-
-  if (cloud1Struck) {
-    cloud1Strip.SetBrightness((maxFlashBrightness * param.progress) + minFlashBrightness);
-  }
-
-  if (cloud2Struck) {
-    cloud2Strip.SetBrightness((maxFlashBrightness * param.progress) + minFlashBrightness);
-  }
-
-  if (cloud3Struck) {
-    cloud3Strip.SetBrightness((maxFlashBrightness * param.progress) + minFlashBrightness);
   }
 
   if (param.state == AnimationState_Completed)
   {
-    cloud1Struck = false;
-    cloud2Struck = false;
-    cloud3Struck = false;
-    
-    cloud1Strip.SetBrightness(minFlashBrightness);
-    cloud2Strip.SetBrightness(minFlashBrightness);
-    cloud3Strip.SetBrightness(minFlashBrightness);
-    
+    resetClouds();
     cloudAnimation.RestartAnimation(param.index);
   }
 }
@@ -157,16 +182,7 @@ void setupClouds() {
   cloud2Strip.Begin();
   cloud3Strip.Begin();
 
-  for (uint16_t pixel = 0; pixel < maxCloudPixelCount; pixel++)
-  {
-    cloud1Strip.SetPixelColor(pixel, white);
-    cloud2Strip.SetPixelColor(pixel, white);
-    cloud3Strip.SetPixelColor(pixel, white);
-  }
-
-  cloud1Strip.SetBrightness(minFlashBrightness);
-  cloud2Strip.SetBrightness(minFlashBrightness);
-  cloud3Strip.SetBrightness(minFlashBrightness);
+  resetClouds();
 
   cloud1Strip.Show();
   cloud2Strip.Show();
@@ -201,6 +217,12 @@ void loop()
   else
   {
     // no animation runnning, start some
-    FadeInFadeOutRinseRepeat(0.5f); // 0.0 = black, 0.25 is normal, 0.5 is bright
+    RgbColor target = HslColor(random(360) / 360.0f, 1.0f, 0.5f);
+    uint16_t time = random(800, 2000);
+  
+    animationState[0].StartingColor = zeppelinStrip.GetPixelColor(0);
+    animationState[0].EndingColor = target;
+  
+    zeppelinAnimation.StartAnimation(0, time, BlendAnimUpdate);
   }
 } 
