@@ -71,7 +71,7 @@ const uint8_t AnimationChannels = 1;
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> zeppelinStrip(zeppelinPixelCount, zeppelinPin);
 
-//TODO: make clouds strips as arrays
+//TODO: make clouds strips as an array
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud1Strip(clouds[0].pixelCount, clouds[0].pin);
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud2Strip(clouds[1].pixelCount, clouds[1].pin);
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud3Strip(clouds[2].pixelCount, clouds[2].pin);
