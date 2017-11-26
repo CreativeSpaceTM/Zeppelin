@@ -15,7 +15,7 @@ struct ZeppelinAnimationState
 struct CloudState {
   uint8_t pin;
   uint8_t pixelCount;
-  
+
   bool struck;
   uint8_t flashOffset;
   uint8_t flashCount;
@@ -30,28 +30,27 @@ const uint8_t cloudCount = 3;
 //TODO: make more beautifull
 CloudState clouds[cloudCount] = {
   {
-    .pin=2,      //pin
-    .pixelCount=17,     //count
-    .struck=false,
-    .flashOffset=0,
-    .flashCount=0    
+    .pin = 2,    //pin
+    .pixelCount = 17,   //count
+    .struck = false,
+    .flashOffset = 0,
+    .flashCount = 0
   },
 
   {
-    .pin=7,      //pin
-    .pixelCount=33,     //count
-    .struck=false,
-    .flashOffset=0,
-    .flashCount=0    
+    .pin = 7,    //pin
+    .pixelCount = 33,   //count
+    .struck = false,
+    .flashOffset = 0,
+    .flashCount = 0
   },
 
   {
-    .pin=12,      //pin
-    .pixelCount=255,     //count
-    
-    .struck=false,
-    .flashOffset=0,
-    .flashCount=0    
+    .pin = 12,    //pin
+    .pixelCount = 255,   //count
+    .struck = false,
+    .flashOffset = 0,
+    .flashCount = 0
   },
 
 };
@@ -72,7 +71,7 @@ NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> zeppelinStrip(zeppelinPixelCount, z
 
 std::vector<NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>> cloudStrip;
 void initCloudStrip() {
- for(auto& cloud: clouds) {
+  for (auto& cloud : clouds) {
     cloudStrip.push_back(NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>(cloud.pixelCount, cloud.pin));
   }
 }
@@ -110,9 +109,9 @@ void BlendAnimUpdate(const AnimationParam& param)
   // we use the blend function on the RgbColor to mix
   // color based on the progress given to us in the animation
   RgbColor updatedColor = RgbColor::LinearBlend(
-    animationState[param.index].StartingColor,
-    animationState[param.index].EndingColor,
-    param.progress);
+                            animationState[param.index].StartingColor,
+                            animationState[param.index].EndingColor,
+                            param.progress);
 
   // apply the color to the strip
   for (uint16_t pixel = 0; pixel < zeppelinPixelCount; pixel++)
@@ -128,13 +127,13 @@ void resetClouds() {
   }
 
   for (uint8_t f = 0; f < maxCloudPixelCount; f++) {
-    for(auto& cs: cloudStrip) {
+    for (auto& cs : cloudStrip) {
       cs.SetPixelColor(f, normalCloudColor);
     }
   }
 }
 uint16_t min(uint16_t left, uint16_t right) {
-  if(left<right) return left;
+  if (left < right) return left;
   return right;
 }
 void flashAnimation(const AnimationParam& param) {
@@ -144,7 +143,7 @@ void flashAnimation(const AnimationParam& param) {
     // roll dice for a flash
     if (!clouds[f].struck) {
       dice = random(0, 100);
-  
+
       if (dice < flashChannce) {
         clouds[f].struck = true;
         clouds[f].flashOffset = random(0, clouds[f].pixelCount - minFlashPixels);
@@ -152,10 +151,10 @@ void flashAnimation(const AnimationParam& param) {
       }
     }
   }
-  
+
   HslColor flashCloudColor(1.0f, 0, (0.5 * param.progress) + 0.004);
 
-  for(int i=0;i<3;i++) {
+  for (int i = 0; i < 3; i++) {
     if (clouds[i].struck) {
       for (uint8_t f = clouds[0].flashOffset; f < clouds[i].flashCount; f++) {
         cloudStrip[i].SetPixelColor(f, flashCloudColor);
@@ -170,14 +169,14 @@ void flashAnimation(const AnimationParam& param) {
 }
 
 void setupClouds() {
-  for(auto& cs: cloudStrip) {
-    cs.Begin();  
+  for (auto& cs : cloudStrip) {
+    cs.Begin();
   }
 
   resetClouds();
 
-  for(auto& cs: cloudStrip) {
-    cs.Show();  
+  for (auto& cs : cloudStrip) {
+    cs.Show();
   }
 
   cloudAnimation.StartAnimation(0, flashDuration, flashAnimation);
@@ -196,7 +195,7 @@ void setup()
 void loop()
 {
   cloudAnimation.UpdateAnimations();
-  for(auto& cs: cloudStrip) {
+  for (auto& cs : cloudStrip) {
     cs.Show();
   }
 
@@ -210,10 +209,10 @@ void loop()
     // no animation runnning, start some
     RgbColor target = HslColor(random(360) / 360.0f, 1.0f, 0.5f);
     uint16_t time = random(800, 2000);
-  
+
     animationState[0].StartingColor = zeppelinStrip.GetPixelColor(0);
     animationState[0].EndingColor = target;
-  
+
     zeppelinAnimation.StartAnimation(0, time, BlendAnimUpdate);
   }
-} 
+}
