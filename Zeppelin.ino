@@ -1,3 +1,4 @@
+#include <ArduinoSTL.h>
 #include <SPI.h>
 
 #include <NeoPixelBus.h>
@@ -29,30 +30,28 @@ const uint8_t cloudCount = 3;
 //TODO: make more beautifull
 CloudState clouds[cloudCount] = {
   {
-    2,      //pin
-    17,     //count
-    
-    false,
-    0,
-    0    
+    .pin=2,      //pin
+    .pixelCount=17,     //count
+    .struck=false,
+    .flashOffset=0,
+    .flashCount=0    
   },
 
   {
-    7,      //pin
-    33,     //count
-    
-    false,
-    0,
-    0    
+    .pin=7,      //pin
+    .pixelCount=33,     //count
+    .struck=false,
+    .flashOffset=0,
+    .flashCount=0    
   },
 
   {
-    12,      //pin
-    255,     //count
+    .pin=12,      //pin
+    .pixelCount=255,     //count
     
-    false,
-    0,
-    0    
+    .struck=false,
+    .flashOffset=0,
+    .flashCount=0    
   },
 
 };
@@ -62,7 +61,7 @@ const uint8_t maxCloudPixelCount = 33;
 const uint8_t flashChannce = 1;
 const uint8_t flashDuration = 70;
 const uint8_t minFlashPixels = 1;
-const uint8_t maxFlashPixels = 10;
+const uint16_t maxFlashPixels = 10;
 
 HslColor normalCloudColor(1.0f, 0, 0.004);
 
@@ -71,11 +70,12 @@ const uint8_t AnimationChannels = 1;
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> zeppelinStrip(zeppelinPixelCount, zeppelinPin);
 
-//TODO: make clouds strips as an array
-NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud1Strip(clouds[0].pixelCount, clouds[0].pin);
-NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud2Strip(clouds[1].pixelCount, clouds[1].pin);
-NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud3Strip(clouds[2].pixelCount, clouds[2].pin);
-
+std::vector<NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>> cloudStrip;
+void initCloudStrip() {
+ for(auto& cloud: clouds) {
+    cloudStrip.push_back(NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod>(cloud.pixelCount, cloud.pin));
+  }
+}
 
 NeoPixelAnimator zeppelinAnimation(AnimationChannels);
 
@@ -128,12 +128,15 @@ void resetClouds() {
   }
 
   for (uint8_t f = 0; f < maxCloudPixelCount; f++) {
-    cloud1Strip.SetPixelColor(f, normalCloudColor);
-    cloud2Strip.SetPixelColor(f, normalCloudColor);
-    cloud3Strip.SetPixelColor(f, normalCloudColor);
+    for(auto& cs: cloudStrip) {
+      cs.SetPixelColor(f, normalCloudColor);
+    }
   }
 }
-
+uint16_t min(uint16_t left, uint16_t right) {
+  if(left<right) return left;
+  return right;
+}
 void flashAnimation(const AnimationParam& param) {
   uint16_t dice;
 
@@ -151,25 +154,14 @@ void flashAnimation(const AnimationParam& param) {
   }
   
   HslColor flashCloudColor(1.0f, 0, (0.5 * param.progress) + 0.004);
-  
-  if (clouds[0].struck) {
-    for (uint8_t f = clouds[0].flashOffset; f < clouds[0].flashCount; f++) {
-      cloud1Strip.SetPixelColor(f, flashCloudColor);
+
+  for(int i=0;i<3;i++) {
+    if (clouds[i].struck) {
+      for (uint8_t f = clouds[0].flashOffset; f < clouds[i].flashCount; f++) {
+        cloudStrip[i].SetPixelColor(f, flashCloudColor);
+      }
     }
   }
-
-  if (clouds[1].struck) {
-    for (uint8_t f = clouds[1].flashOffset; f < clouds[1].flashCount; f++) {
-      cloud2Strip.SetPixelColor(f, flashCloudColor);
-    }
-  }
-
-  if (clouds[2].struck) {
-    for (uint8_t f = clouds[2].flashOffset; f < clouds[2].flashCount; f++) {
-      cloud3Strip.SetPixelColor(f, flashCloudColor);
-    }
-  }
-
   if (param.state == AnimationState_Completed)
   {
     resetClouds();
@@ -178,15 +170,15 @@ void flashAnimation(const AnimationParam& param) {
 }
 
 void setupClouds() {
-  cloud1Strip.Begin();
-  cloud2Strip.Begin();
-  cloud3Strip.Begin();
+  for(auto& cs: cloudStrip) {
+    cs.Begin();  
+  }
 
   resetClouds();
 
-  cloud1Strip.Show();
-  cloud2Strip.Show();
-  cloud3Strip.Show();
+  for(auto& cs: cloudStrip) {
+    cs.Show();  
+  }
 
   cloudAnimation.StartAnimation(0, flashDuration, flashAnimation);
 }
@@ -204,12 +196,11 @@ void setup()
 void loop()
 {
   cloudAnimation.UpdateAnimations();
-  cloud1Strip.Show();
-  cloud2Strip.Show();
-  cloud3Strip.Show();
+  for(auto& cs: cloudStrip) {
+    cs.Show();
+  }
 
-  if (zeppelinAnimation.IsAnimating())
-  {
+  if (zeppelinAnimation.IsAnimating()) {
     // the normal loop just needs these two to run the active animations
     zeppelinAnimation.UpdateAnimations();
     zeppelinStrip.Show();
