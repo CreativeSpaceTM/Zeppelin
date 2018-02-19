@@ -21,10 +21,17 @@ struct CloudState {
 };
 
 
-const uint16_t zeppelinPixelCount = 150;
-const uint8_t zeppelinPin = 13;
+const uint8_t zeppelinPixelCount = 150;
+const uint8_t zeppelinPin = 10;
+
+const uint8_t cannonBodyPixelCount = 17;
+const uint8_t cannonBodyPin = 13;
+uint8_t lastCannonPixel;
 
 const uint8_t cloudCount = 3;
+
+const RgbColor BlackColor(HtmlColor(0x000000));
+const RgbColor RedColor(HtmlColor(0xff0000));
 
 //TODO: make more beautifull
 CloudState clouds[cloudCount] = {
@@ -66,10 +73,9 @@ const uint8_t maxFlashPixels = 10;
 
 HslColor normalCloudColor(1.0f, 0, 0.004);
 
-const uint8_t AnimationChannels = 1;
-
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> zeppelinStrip(zeppelinPixelCount, zeppelinPin);
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cannonBodyStrip(cannonBodyPixelCount, cannonBodyPin);
 
 //TODO: make clouds strips as an array
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud1Strip(clouds[0].pixelCount, clouds[0].pin);
@@ -77,12 +83,13 @@ NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud2Strip(clouds[1].pixelCount, c
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud3Strip(clouds[2].pixelCount, clouds[2].pin);
 
 
-NeoPixelAnimator zeppelinAnimation(AnimationChannels);
+NeoPixelAnimator zeppelinAnimation(1);
 
 NeoPixelAnimator cloudAnimation(1);
+NeoPixelAnimator cannonAnimation(1);
 
 // one entry per pixel to match the animation timing manager
-ZeppelinAnimationState animationState[AnimationChannels];
+ZeppelinAnimationState animationState[1];
 
 void SetRandomSeed()
 {
@@ -177,6 +184,21 @@ void flashAnimation(const AnimationParam& param) {
   }
 }
 
+void CannonAnimUpdate(const AnimationParam& param) {
+	float progress = NeoEase::Linear(param.progress);
+	uint16_t nextCannonPixel = progress * cannonBodyPixelCount;
+	
+	cannonBodyStrip.SetPixelColor(lastCannonPixel, BlackColor);
+	
+	cannonBodyStrip.SetPixelColor(nextCannonPixel, RedColor);
+	
+	lastCannonPixel = nextCannonPixel;
+	
+	if (param.state == AnimationState_Completed) {
+		cannonAnimation.RestartAnimation(param.index);
+	}
+}
+
 void setupClouds() {
   cloud1Strip.Begin();
   cloud2Strip.Begin();
@@ -196,9 +218,13 @@ void setup()
   zeppelinStrip.Begin();
   zeppelinStrip.Show();
 
+  cannonBodyStrip.Begin();
+  cannonBodyStrip.Show();
 
   SetRandomSeed();
   setupClouds();
+  
+  cannonAnimation.StartAnimation(0, 300, CannonAnimUpdate);
 }
 
 void loop()
@@ -225,4 +251,7 @@ void loop()
   
     zeppelinAnimation.StartAnimation(0, time, BlendAnimUpdate);
   }
+
+	cannonAnimation.UpdateAnimations();
+	cannonBodyStrip.Show();  
 } 
