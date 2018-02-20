@@ -11,6 +11,10 @@ struct ZeppelinAnimationState
 };
 
 
+const uint8_t zeppelinPixelCount = 150;
+const uint8_t zeppelinPin = 10;
+
+
 struct CloudState {
   uint8_t pin;
   uint8_t pixelCount;
@@ -20,15 +24,22 @@ struct CloudState {
   uint8_t flashCount;
 };
 
+const uint8_t cloudCount = 3;
 
-const uint8_t zeppelinPixelCount = 150;
-const uint8_t zeppelinPin = 10;
 
-const uint8_t cannonBodyPixelCount = 17;
+const uint8_t cannonBodyPixelCount = 16;
 const uint8_t cannonBodyPin = 13;
+const uint8_t cannonLaserPin = A5;
 uint8_t lastCannonPixel;
 
-const uint8_t cloudCount = 3;
+float slowestCanonSpeed = 300;
+float fastestCanonSpeed = 50;
+uint8_t cannonAnimationsCount = 10;
+uint8_t cannonSlowSpeedSteps = 15;
+
+uint8_t cannonSlowSpeedCount = 0;
+float cannonAnimationStep = (slowestCanonSpeed - fastestCanonSpeed) / cannonAnimationsCount;
+float currentCannonAnimationSpeed = slowestCanonSpeed;
 
 const RgbColor BlackColor(HtmlColor(0x000000));
 const RgbColor RedColor(HtmlColor(0xff0000));
@@ -86,7 +97,9 @@ NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> cloud3Strip(clouds[2].pixelCount, c
 NeoPixelAnimator zeppelinAnimation(1);
 
 NeoPixelAnimator cloudAnimation(1);
+
 NeoPixelAnimator cannonAnimation(1);
+NeoPixelAnimator cannonFireAnimation(1);
 
 // one entry per pixel to match the animation timing manager
 ZeppelinAnimationState animationState[1];
@@ -188,6 +201,7 @@ void CannonAnimUpdate(const AnimationParam& param) {
 	float progress = NeoEase::Linear(param.progress);
 	uint16_t nextCannonPixel = progress * cannonBodyPixelCount;
 	
+	
 	cannonBodyStrip.SetPixelColor(lastCannonPixel, BlackColor);
 	
 	cannonBodyStrip.SetPixelColor(nextCannonPixel, RedColor);
@@ -195,7 +209,38 @@ void CannonAnimUpdate(const AnimationParam& param) {
 	lastCannonPixel = nextCannonPixel;
 	
 	if (param.state == AnimationState_Completed) {
-		cannonAnimation.RestartAnimation(param.index);
+		if (currentCannonAnimationSpeed > fastestCanonSpeed) {
+			currentCannonAnimationSpeed -= cannonAnimationStep;
+			cannonAnimation.StartAnimation(0, currentCannonAnimationSpeed, CannonAnimUpdate);
+		}
+		else {
+			if (cannonSlowSpeedCount < cannonSlowSpeedSteps) {
+				cannonSlowSpeedCount ++;
+				cannonAnimation.StartAnimation(0, currentCannonAnimationSpeed, CannonAnimUpdate);
+			}
+			else {
+				cannonSlowSpeedCount = 0;
+				currentCannonAnimationSpeed = slowestCanonSpeed;
+				cannonFireAnimation.StartAnimation(0, 1000, CannonFireAnimUpdate);
+			}
+		}
+	}
+}
+
+void CannonFireAnimUpdate(const AnimationParam& param) {
+	float progress = NeoEase::Linear(param.progress);
+	
+	if ((int)(progress * 100) % 3 == 0) {
+		digitalWrite(cannonLaserPin, LOW);
+	}
+	else {
+		digitalWrite(cannonLaserPin, HIGH);
+	}
+	
+	
+	if (param.state == AnimationState_Completed) {
+		digitalWrite(cannonLaserPin, LOW);
+		cannonAnimation.StartAnimation(0, slowestCanonSpeed, CannonAnimUpdate);
 	}
 }
 
@@ -215,6 +260,8 @@ void setupClouds() {
 
 void setup()
 {
+	pinMode(cannonLaserPin, OUTPUT);
+	
   zeppelinStrip.Begin();
   zeppelinStrip.Show();
 
@@ -224,7 +271,7 @@ void setup()
   SetRandomSeed();
   setupClouds();
   
-  cannonAnimation.StartAnimation(0, 300, CannonAnimUpdate);
+  cannonAnimation.StartAnimation(0, slowestCanonSpeed, CannonAnimUpdate);
 }
 
 void loop()
@@ -253,5 +300,6 @@ void loop()
   }
 
 	cannonAnimation.UpdateAnimations();
+	cannonFireAnimation.UpdateAnimations();
 	cannonBodyStrip.Show();  
 } 
