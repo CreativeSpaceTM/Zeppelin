@@ -230,7 +230,7 @@ void CannonAnimUpdate(const AnimationParam& param) {
 void CannonFireAnimUpdate(const AnimationParam& param) {
 	float progress = NeoEase::Linear(param.progress);
 	
-	if ((int)(progress * 100) % 3 == 0) {
+	if ((int)(progress * 100) % 5 == 0) {
 		digitalWrite(cannonLaserPin, LOW);
 	}
 	else {
