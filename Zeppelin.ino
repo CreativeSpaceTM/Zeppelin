@@ -1,3 +1,8 @@
+// PINS
+// Zepelin - 10
+// Clouds - [2, 7, 12]
+// Canon - 13
+
 #include <SPI.h>
 
 #include <NeoPixelBus.h>
